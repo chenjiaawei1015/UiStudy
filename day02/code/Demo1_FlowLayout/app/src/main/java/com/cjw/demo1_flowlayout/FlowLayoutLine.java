@@ -8,10 +8,10 @@ import java.util.List;
  * Created by Administrator on 2017/10/6.
  */
 
-public class FlowLineBean {
+public class FlowLayoutLine {
 
-    int maxWidth;
-    int maxHeight;
-    List<View> viewList;
+    public int lineWidth;
+    public int maxViewHeight;
+    public List<View> viewList;
 
 }

@@ -15,12 +15,19 @@ import java.util.ArrayList;
 
 public class FlowLayout extends ViewGroup {
 
-    private SparseArray<FlowLineBean> mViewSp;
-    private int mCurrentLine;
+    private SparseArray<FlowLayoutLine> mFlowLayoutLineSp;
+
+    public FlowLayout(Context context) {
+        this(context, null);
+    }
 
     public FlowLayout(Context context, AttributeSet attrs) {
-        super(context, attrs);
-        mViewSp = new SparseArray<>();
+        this(context, attrs, 0);
+    }
+
+    public FlowLayout(Context context, AttributeSet attrs, int defStyleAttr) {
+        super(context, attrs, defStyleAttr);
+        mFlowLayoutLineSp = new SparseArray<>();
     }
 
     @Override
@@ -30,98 +37,98 @@ public class FlowLayout extends ViewGroup {
 
     @Override
     protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
-        mCurrentLine = 0;
-        mViewSp.clear();
-
+        mFlowLayoutLineSp.clear();
         int widthMode = MeasureSpec.getMode(widthMeasureSpec);
         int widthSize = MeasureSpec.getSize(widthMeasureSpec);
         int heightMode = MeasureSpec.getMode(heightMeasureSpec);
+        int childCount = getChildCount();
 
-        if (MeasureSpec.EXACTLY == widthMode && MeasureSpec.EXACTLY == heightMode) {
-            setMeasuredDimension(widthMeasureSpec, heightMeasureSpec);
+        if (MeasureSpec.EXACTLY == widthMode && MeasureSpec.EXACTLY == heightMode
+                || childCount <= 0) {
+            super.onMeasure(widthMeasureSpec, heightMeasureSpec);
             return;
         }
 
-        int flowLayoutWidth = 0;
-        int flowLayoutHeight = 0;
-        int currentWidth = 0;
-        int currentHeight = 0;
-
-        int childCount = getChildCount();
-        if (childCount > 0) {
-            mCurrentLine = 1;
-        }
+        int currentLineWidth = 0;
+        int tempCurrentLineWidth;
+        int currentLineMaxHeight = 0;
+        int currentLineIndex = 0;
 
         for (int i = 0; i < childCount; i++) {
-            View itemView = getChildAt(i);
-            measureChild(itemView, widthMeasureSpec, heightMeasureSpec);
-            MarginLayoutParams params = (MarginLayoutParams) itemView.getLayoutParams();
+            View childView = getChildAt(i);
+            measureChild(childView, widthMeasureSpec, heightMeasureSpec);
 
-            int measuredWidth = itemView.getMeasuredWidth();
-            int measuredHeight = itemView.getMeasuredHeight();
-            int childWidth = params.leftMargin + measuredWidth + params.rightMargin;
-            int childTop = params.topMargin + measuredHeight + params.bottomMargin;
+            MarginLayoutParams layoutParams = (MarginLayoutParams) childView.getLayoutParams();
 
-            if (currentWidth + childWidth > widthSize) {
-                // 换行
-                flowLayoutWidth = Math.max(flowLayoutWidth, currentWidth);
-                flowLayoutHeight += currentHeight;
-                mCurrentLine++;
-                currentWidth = childWidth;
-                currentHeight = childTop;
+            tempCurrentLineWidth = currentLineWidth + layoutParams.leftMargin
+                    + childView.getMeasuredWidth() + layoutParams.rightMargin;
 
+            int height = layoutParams.topMargin + childView.getMeasuredHeight()
+                    + layoutParams.bottomMargin;
+
+            if (tempCurrentLineWidth > widthSize) {
+                // change Line
+                currentLineIndex++;
+                currentLineWidth = tempCurrentLineWidth - currentLineWidth;
+                currentLineMaxHeight = height;
             } else {
-                // 不换行
-                currentWidth += childWidth;
-                currentHeight = Math.max(currentHeight, childTop);
-
-                if (i == childCount - 1) {
-                    flowLayoutWidth = Math.max(flowLayoutWidth, currentWidth);
-                    flowLayoutHeight += currentHeight;
-                }
+                currentLineWidth = tempCurrentLineWidth;
+                currentLineMaxHeight = Math.max(currentLineMaxHeight, height);
             }
-            saveViewToSpCache(itemView, currentWidth, currentHeight);
+            saveViewToCache(childView, currentLineIndex, currentLineWidth, currentLineMaxHeight);
         }
 
-        int widthSpec = MeasureSpec.makeMeasureSpec(flowLayoutWidth, MeasureSpec.EXACTLY);
-        int heightSpec = MeasureSpec.makeMeasureSpec(flowLayoutHeight, MeasureSpec.EXACTLY);
+        int size = mFlowLayoutLineSp.size();
+        int maxLineWidth = 0;
+        int totalViewHeight = 0;
+        for (int i = 0; i < size; i++) {
+            FlowLayoutLine layoutLine = mFlowLayoutLineSp.get(i);
+            maxLineWidth = Math.max(maxLineWidth, layoutLine.lineWidth);
+            totalViewHeight += layoutLine.maxViewHeight;
+        }
+
+        int widthSpec = MeasureSpec.makeMeasureSpec(maxLineWidth, MeasureSpec.EXACTLY);
+        int heightSpec = MeasureSpec.makeMeasureSpec(totalViewHeight, MeasureSpec.EXACTLY);
         setMeasuredDimension(widthSpec, heightSpec);
     }
 
-    private void saveViewToSpCache(View view, int lineWidth, int lineHeight) {
-        FlowLineBean lineBean = mViewSp.get(mCurrentLine);
-        if (lineBean == null) {
-            lineBean = new FlowLineBean();
-            lineBean.viewList = new ArrayList<>();
+    private void saveViewToCache(View childView, int currentLineIndex, int lineWidth,
+                                 int currentLineMaxHeight) {
+        FlowLayoutLine flowLayoutLine = mFlowLayoutLineSp.get(currentLineIndex);
+        if (flowLayoutLine == null) {
+            flowLayoutLine = new FlowLayoutLine();
+            flowLayoutLine.viewList = new ArrayList<>();
         }
-        lineBean.viewList.add(view);
-        lineBean.maxWidth = lineWidth;
-        lineBean.maxHeight = lineHeight;
-        mViewSp.put(mCurrentLine, lineBean);
+        flowLayoutLine.lineWidth = lineWidth;
+        flowLayoutLine.maxViewHeight = currentLineMaxHeight;
+        flowLayoutLine.viewList.add(childView);
+        mFlowLayoutLineSp.put(currentLineIndex, flowLayoutLine);
     }
 
     @Override
-    protected void onLayout(boolean changed, int l, int t, int r, int b) {
-        int currentWidth = 0;
-        int currentHeight = 0;
-        int left, top;
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        int lineCount = mFlowLayoutLineSp.size();
+        int currentLineHeight = 0;
 
-        for (int i = 0; i < mViewSp.size(); i++) {
-            FlowLineBean lineBean = mViewSp.get(i + 1);
-            for (View view : lineBean.viewList) {
-                MarginLayoutParams params = (MarginLayoutParams) view.getLayoutParams();
-                int measuredWidth = view.getMeasuredWidth();
-                int measuredHeight = view.getMeasuredHeight();
+        for (int i = 0; i < lineCount; i++) {
+            FlowLayoutLine flowLayoutLine = mFlowLayoutLineSp.get(i);
 
-                left = currentWidth + params.leftMargin;
-                top = currentHeight + (lineBean.maxHeight - measuredHeight - params.topMargin
-                        - params.bottomMargin) / 2;
-                view.layout(left, top, left + measuredWidth, top + measuredHeight);
+            int currentLineWidth = 0;
+            for (View childView : flowLayoutLine.viewList) {
+                MarginLayoutParams layoutParams = (MarginLayoutParams) childView.getLayoutParams();
+                int measuredWidth = childView.getMeasuredWidth();
+                int measuredHeight = childView.getMeasuredHeight();
 
-                currentWidth = left + measuredWidth + params.rightMargin;
+                int childViewLeft = currentLineWidth + layoutParams.leftMargin;
+                int childViewRight = childViewLeft + measuredWidth;
+                int childViewTop = currentLineHeight + (flowLayoutLine.maxViewHeight
+                        - measuredHeight - layoutParams.topMargin - layoutParams.bottomMargin) / 2;
+                int childViewBottom = childViewTop + measuredHeight;
+                currentLineWidth = childViewRight + layoutParams.rightMargin;
+
+                childView.layout(childViewLeft, childViewTop, childViewRight, childViewBottom);
             }
-            currentWidth = 0;
-            currentHeight += lineBean.maxHeight;
+            currentLineHeight += flowLayoutLine.maxViewHeight;
         }
     }
 }
