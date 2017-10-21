@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="com.cjw.demo2_circleprogressbar.MainActivity">
+
+    <EditText
+        android:id="@+id/value_et"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:inputType="numberSigned"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"/>
+
+    <Button
+        android:id="@+id/update_bt"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="更新"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/value_et"
+        tools:layout_editor_absoluteX="8dp"/>
+
+
+    <com.cjw.demo2_circleprogressbar.CircleProgressBar
+        android:id="@+id/progress_cpb"
+        android:layout_width="300dp"
+        android:layout_height="300dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:roundColor="#ff0000"
+        app:roundWidth="20dp"
+        app:textColor="#20B2AA"
+        app:textSize="30sp"/>
+
+</android.support.constraint.ConstraintLayout>
